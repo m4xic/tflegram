@@ -29,10 +29,6 @@ recognised_lines = json.loads(config)['lines']
 bot_settings = json.loads(config)['settings']
 
 ## Telegram commands
-# /start
-def start(update: Update, context: CallbackContext):
-    context.bot.send_message(chat_id=update.effective_chat.id, text="You ran the `/start` command.")
-dispatcher.add_handler(CommandHandler('start', start))
 
 # /help
 def help(update: Update, context: CallbackContext):
@@ -50,12 +46,8 @@ Check the status of a specific line.
 👨🏽‍🔧 Maintained by <b><a href="https://github.com/m4xic">@m4xic</a></b>
 🏙 Made with 🤍 (and 🐍) in London... obviously"""
     context.bot.send_message(chat_id=update.effective_chat.id, text=message, parse_mode=PARSEMODE_HTML, disable_web_page_preview=True)
+dispatcher.add_handler(CommandHandler('start', help))
 dispatcher.add_handler(CommandHandler('help', help))
-
-# /settings
-def settings(update: Update, context: CallbackContext):
-    context.bot.send_message(chat_id=update.effective_chat.id, text="You ran the `/settings` command.")
-dispatcher.add_handler(CommandHandler('settings', settings))
 
 # Ping
 def ping(update: Update, context: CallbackContext):
