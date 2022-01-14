@@ -20,6 +20,7 @@
         "Reduced Service": "⏱",
         "Bus Service": "🚍",
         "Exit Only": "🚪",
+        "Strike Action (/strikes)": "🪧",
         "*": "❗️"
     },
     "lines": [

@@ -65,6 +65,7 @@ def service_status(update: Update, context: CallbackContext, requested_line=None
         for line in api_status:
             # Get the worst (first) severity status on the line
             worst_severity = line['lineStatuses'][0]['statusSeverityDescription']
+            if worst_severity == "Special Service" and "strike" in line['lineStatuses'][0]['reason'].lower(): worst_severity = "Strike Action (/strikes)"
             # Create a list for this status if it doesn't already exist
             if worst_severity not in statuses.keys(): statuses[worst_severity] = [line['name']]
             else: statuses[worst_severity].append(line['name'])
@@ -99,6 +100,7 @@ def service_status(update: Update, context: CallbackContext, requested_line=None
         else:
             # Get the status description ('Good Service', 'Minor Delays') for the line
             status = api_status[0]['lineStatuses'][0]['statusSeverityDescription']
+            if status == "Special Service" and "strike" in api_status[0]['lineStatuses'][0]['reason'].lower(): status = "Strike Action (/strikes)"
 
             # If we have an emoji configured to be associated with the status, add it
             if status in sev_formats.keys(): message = f"{sev_formats[status]} <b>{status}</b> on <b>{api_status[0]['name']}</b> services."
@@ -114,6 +116,31 @@ def service_status(update: Update, context: CallbackContext, requested_line=None
             # Send the reply, disabling message previews to make the message cleaner
             context.bot.send_message(chat_id=update.effective_chat.id, text=message, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
 dispatcher.add_handler(CommandHandler('status', service_status))
+
+# Strike info
+def strikes(update: Update, context: CallbackContext):
+    api_status = requests.get("https://api.tfl.gov.uk/line/mode/tube,overground,dlr,tflrail/status").json()
+    lines_on_strike = {}
+    for line in api_status:
+        for status_message in line['lineStatuses']:
+            if status_message['statusSeverityDescription'] == 'Special Service' and "strike" in status_message['reason'].lower():
+                if status_message['reason'] in lines_on_strike.keys(): lines_on_strike[status_message['reason']].append(line['name'])
+                else: lines_on_strike[status_message['reason']] = [line['name']]
+
+    num_on_strike = 0
+    for strike_notice in lines_on_strike: num_on_strike += len(lines_on_strike[strike_notice])
+
+    if lines_on_strike == {}:
+        message = f"<b>✅ Good news!</b> I can't see any strikes going on at the moment.\n\nYou cse /status to check for other incidents."
+        context.bot.send_message(chat_id=update.effective_chat.id, text=message, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
+    else:
+        message = f"🪧 <b>Heads up!</b> {num_on_strike} line" + ("s" if num_on_strike != 1 else "") + " might be affected. Here's what you need to know."
+        for reason in lines_on_strike.keys():
+            message += f"\n\n⚠️ <b>{', '.join(lines_on_strike[reason][:-1])} and {lines_on_strike[reason][-1]}</b>"
+            message += f"\n<pre>{reason}</pre>"
+        message += "\n\nMore info and alternative routes available on the <a href=\"https://tfl.gov.uk/tube-dlr-overground/status\">TfL website</a>."
+        context.bot.send_message(chat_id=update.effective_chat.id, text=message, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
+dispatcher.add_handler(CommandHandler('strikes', strikes))
 
 # Add handlers for direct / commands for each line and alias
 for line in recognised_lines:
