@@ -3,11 +3,12 @@
 import json
 import random
 from functools import partial
+from math import ceil
 
 # Telegram API library
-from telegram import Update, ParseMode
+from telegram import Update, ParseMode, KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.constants import PARSEMODE_HTML
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, ConversationHandler
 
 # TfL API library
 import requests
@@ -142,6 +143,66 @@ def strikes(update: Update, context: CallbackContext):
         context.bot.send_message(chat_id=update.effective_chat.id, text=message, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
 dispatcher.add_handler(CommandHandler('strikes', strikes))
 
+# Next departures
+LOCATION, STATION_SELECTED, LINE_SELECTED = range(3)
+def now(update: Update, context: CallbackContext):
+    reply_markup = ReplyKeyboardMarkup([[KeyboardButton(text="📍 Send Location", request_location=True)]], one_time_keyboard=True, resize_keyboard=True)
+    context.bot.send_message(chat_id=update.effective_chat.id, text="I need your location...", parse_mode=ParseMode.HTML, disable_web_page_preview=True, reply_markup=reply_markup)
+    return LOCATION
+def now_loc(update: Update, context: CallbackContext):
+    lon, lat = update.message.location['longitude'], update.message.location['latitude']
+    station_search = requests.get(f'https://api.tfl.gov.uk/StopPoint/?lat={lat}&lon={lon}&stopTypes=NaptanMetroStation,NaptanRailStation&radius=1000&modes=tube,dlr,overground,tflrail').json()
+    stations = {}
+    while len(stations) < 4:
+        for current_station in station_search['stopPoints']: stations[current_station['commonName']] = current_station['id']
+        break
+    if len(stations) == 0:
+        context.bot.send_message(chat_id=update.effective_chat.id, text="No stations nearby.", parse_mode=ParseMode.HTML, disable_web_page_preview=True, reply_markup=ReplyKeyboardRemove())
+        return ConversationHandler.END
+    context.user_data['station_ids'] = stations
+    station_names = list(stations.keys())[::-1]
+    buttons, this_row = [], []
+    while station_names != []:
+        this_row.append(KeyboardButton(text=f"{station_names[-1]}"))
+        station_names.pop()
+        if len(this_row) == 2 or station_names == []:
+            buttons.append(this_row)
+            this_row = []
+    reply_markup = ReplyKeyboardMarkup(buttons, one_time_keyboard=True, resize_keyboard=True)
+    context.bot.send_message(chat_id=update.effective_chat.id, text="Pick a station, please!", parse_mode=ParseMode.HTML, disable_web_page_preview=True, reply_markup=reply_markup)
+    return STATION_SELECTED
+def now_results(update: Update, context: CallbackContext):
+    if update.message.text not in context.user_data['station_ids'].keys():
+        context.bot.send_message(chat_id=update.effective_chat.id, text="I don't know that station.", parse_mode=ParseMode.HTML, disable_web_page_preview=True, reply_markup=ReplyKeyboardRemove())
+        return ConversationHandler.END
+    context.user_data['chosen_station'] = update.message.text
+    print(context.user_data)
+    arrivals = requests.get(f"https://api.tfl.gov.uk/StopPoint/{context.user_data['station_ids'][context.user_data['chosen_station']]}/Arrivals").json()
+    print(arrivals)
+    if arrivals == []:
+        context.bot.send_message(chat_id=update.effective_chat.id, text="😴 <b>No arrivals coming up.</b> Is the station closed?", parse_mode=ParseMode.HTML, disable_web_page_preview=True, reply_markup=ReplyKeyboardRemove())
+        return ConversationHandler.END
+    else:
+        # Need to create the code for this section! It's 1:33am though, so all the Tube lines are shut :(
+        pass
+def now_cancel(update: Update, context: CallbackContext):
+    context.bot.send_message(chat_id=update.effective_chat.id, text="Cancelled.", parse_mode=ParseMode.HTML, disable_web_page_preview=True, reply_markup=ReplyKeyboardRemove())
+    return ConversationHandler.END
+def clear_kb(update: Update, context: CallbackContext):
+    context.bot.send_message(chat_id=update.effective_chat.id, text="Cleared.", parse_mode=ParseMode.HTML, disable_web_page_preview=True, reply_markup=ReplyKeyboardRemove())
+
+conv_handler = ConversationHandler(
+    entry_points=[CommandHandler('now', now)],
+    states={
+        LOCATION: [MessageHandler(Filters.location, now_loc)],
+        STATION_SELECTED: [MessageHandler(Filters.text & ~(Filters.command), now_results)]
+    },
+    fallbacks=[CommandHandler('cancel', now_cancel)]
+)
+
+dispatcher.add_handler(conv_handler)
+dispatcher.add_handler(CommandHandler('clearkb', clear_kb))
+
 # Add handlers for direct / commands for each line and alias
 for line in recognised_lines:
     if "-" not in line:
@@ -158,3 +219,4 @@ dispatcher.add_handler(MessageHandler(Filters.command, unknown))
 ## Start the Telegram bot
 updater.start_polling()
 print("✅ Started TfLegram")
+updater.idle()
