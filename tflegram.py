@@ -119,6 +119,7 @@ def service_status(update: Update, context: CallbackContext, requested_line=None
 dispatcher.add_handler(CommandHandler('status', service_status))
 
 # Strike info
+# TODO: Document code
 def strikes(update: Update, context: CallbackContext):
     api_status = requests.get("https://api.tfl.gov.uk/line/mode/tube,overground,dlr,tflrail/status").json()
     lines_on_strike = {}
@@ -142,6 +143,7 @@ def strikes(update: Update, context: CallbackContext):
 dispatcher.add_handler(CommandHandler('strikes', strikes))
 
 # Next departures
+# TODO: Write proper user messages for each stage
 LOCATION, STATION_SELECTED, LINE_SELECTED = range(3)
 def now(update: Update, context: CallbackContext):
     reply_markup = ReplyKeyboardMarkup([[KeyboardButton(text="📍 Send Location", request_location=True)]], one_time_keyboard=True, resize_keyboard=True)
@@ -160,6 +162,7 @@ def now_loc(update: Update, context: CallbackContext):
     context.user_data['station_ids'] = stations
     station_names = list(stations.keys())[::-1]
     buttons, this_row = [], []
+    # TODO: Spin this out in to it's own function for keyboard generation
     while station_names != []:
         this_row.append(KeyboardButton(text=f"{station_names[-1]}"))
         station_names.pop()
@@ -181,7 +184,7 @@ def now_results(update: Update, context: CallbackContext):
         context.bot.send_message(chat_id=update.effective_chat.id, text="😴 <b>No arrivals coming up.</b> Is the station closed?", parse_mode=ParseMode.HTML, disable_web_page_preview=True, reply_markup=ReplyKeyboardRemove())
         return ConversationHandler.END
     else:
-        # Need to create the code for this section! It's 1:33am though, so all the Tube lines are shut :(
+        # TODO: Need to create the code for this section! It's 1:33am though, so all the Tube lines are shut :(
         pass
 def now_cancel(update: Update, context: CallbackContext):
     context.bot.send_message(chat_id=update.effective_chat.id, text="Cancelled.", parse_mode=ParseMode.HTML, disable_web_page_preview=True, reply_markup=ReplyKeyboardRemove())
