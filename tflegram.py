@@ -4,6 +4,7 @@ import json
 import random
 from functools import partial
 from math import ceil
+from collections import OrderedDict
 
 # Telegram API library
 from telegram import Update, ParseMode, KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove
@@ -183,27 +184,37 @@ def now_results(update: Update, context: CallbackContext):
         context.bot.send_message(chat_id=update.effective_chat.id, text="😴 <b>No arrivals coming up.</b> The station might be closed. (/status)", parse_mode=ParseMode.HTML, disable_web_page_preview=True, reply_markup=ReplyKeyboardRemove())
         return ConversationHandler.END
     else:
-        message = f"🚝 <b>Next trains</b> at <b>{context.user_data['chosen_station']}</b>\n"
+        message = f"🚝 <b>Next trains</b> at <b>{context.user_data['chosen_station']}</b>"
         lines = {}
-        # TODO: Refactor this - change to group by Line -> Platform -> Destination -> [Times] (not Line -> Destination -> {Platform and Times})
+
         for arrival in arrivals:
-            if 'destinationName' not in arrival.keys():
-                lineName, destinationName, timeToStation, platformName = arrival['lineName'], arrival['towards'].replace("Check Front of Train", f"{arrival['platformName'].split(' ')[0]} ⚠️"), arrival['timeToStation'], arrival['platformName']
-            else:
-                lineName, destinationName, timeToStation, platformName = arrival['lineName'], arrival['destinationName'].replace(" Underground Station", "").replace(" DLR Station", " DLR").replace(" (H&C Line)", "").replace(" (Circle Line)", ""), arrival['timeToStation'], arrival['platformName']
-            
-            if lineName not in lines.keys(): lines[lineName] = {destinationName: {'platform': platformName, 'times': [timeToStation]}}
-            else:
-                if destinationName not in lines[lineName]: lines[lineName][destinationName] = {'platform': platformName, 'times': [timeToStation]}
-                else: lines[lineName][destinationName]['times'].append(timeToStation)
-        
+            lineName, timeToStation = arrival['lineName'], arrival['timeToStation']
+
+            if 'Northbound' in arrival['platformName']: platformName = f"Platform {int(arrival['platformName'].split(' ')[-1])} (Northbound <b>↑</b>)"
+            elif 'Southbound' in arrival['platformName']: platformName = f"Platform {int(arrival['platformName'].split(' ')[-1])} (Southbound <b>↓</b>)"
+            elif 'Eastbound' in arrival['platformName']: platformName = f"Platform {int(arrival['platformName'].split(' ')[-1])} (Eastbound <b>→</b>)"
+            elif 'Westbound' in arrival['platformName']: platformName = f"Platform {int(arrival['platformName'].split(' ')[-1])} (Westbound <b>←</b>)"
+            else: platformName = arrival['platformName']
+
+            if 'destinationName' not in arrival.keys(): destinationName = arrival['towards'].replace("Check Front of Train", f"{arrival['platformName'].split(' ')[0]} ⚠️")
+            else: destinationName = arrival['destinationName'].replace(" Underground Station", "").replace(" DLR Station", " DLR").replace(" (H&C Line)", "").replace(" (Circle Line)", "")
+
+            if lineName not in lines.keys(): lines[lineName] = {platformName: {destinationName: [timeToStation]}}
+            elif platformName not in lines[lineName]: lines[lineName][platformName] = {destinationName: [timeToStation]}
+            elif destinationName not in lines[lineName][platformName]: lines[lineName][platformName][destinationName] = [timeToStation]
+            else: lines[lineName][platformName][destinationName].append(timeToStation)
+
         for line in lines.keys():
-            message += f"\n<b>{line}</b>\n"
-            for destination in lines[line].keys():
-                formatted_times = [("Due") if (x//60 == 0) else ((str(x//60) + " mins")) for x in sorted(lines[line][destination]['times'])]
-                formatted_times[0] = "<b>" + formatted_times[0] + "</b>"
-                if len(formatted_times) > 3: formatted_times = formatted_times[:3]
-                message += f"<b>{destination}</b> ({lines[line][destination]['platform']}): {', '.join(formatted_times)}\n"
+            message += '\n'
+            for platform in sorted(lines[line].keys()):
+                message += f"\n<u><b>{line}</b></u> {platform}\n"
+                for destination in sorted(lines[line][platform].keys()):
+                    formatted_times = [("Due") if (x//60 == 0) else ((str(x//60) + " min" + ("s" if x//60 != 1 else ""))) for x in sorted(lines[line][platform][destination])]
+                    formatted_times[0] = "<b>" + formatted_times[0] + "</b>"
+                    if len(formatted_times) > 3: formatted_times = formatted_times[:3]
+                    message += f"<b>{destination}</b>: {', '.join(formatted_times)}\n"
+
+
         context.bot.send_message(chat_id=update.effective_chat.id, text=message, parse_mode=ParseMode.HTML, disable_web_page_preview=True, reply_markup=ReplyKeyboardRemove())
         return ConversationHandler.END
 def now_cancel(update: Update, context: CallbackContext):
