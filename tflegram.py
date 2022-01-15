@@ -147,7 +147,7 @@ dispatcher.add_handler(CommandHandler('strikes', strikes))
 LOCATION, STATION_SELECTED, LINE_SELECTED = range(3)
 def now(update: Update, context: CallbackContext):
     reply_markup = ReplyKeyboardMarkup([[KeyboardButton(text="📍 Send Location", request_location=True)]], one_time_keyboard=True, resize_keyboard=True)
-    context.bot.send_message(chat_id=update.effective_chat.id, text="I need your location...", parse_mode=ParseMode.HTML, disable_web_page_preview=True, reply_markup=reply_markup)
+    context.bot.send_message(chat_id=update.effective_chat.id, text="📍 <b>Let's get moving!</b> I'll need your location to find your nearest station.", parse_mode=ParseMode.HTML, disable_web_page_preview=True, reply_markup=reply_markup)
     return LOCATION
 def now_loc(update: Update, context: CallbackContext):
     lon, lat = update.message.location['longitude'], update.message.location['latitude']
@@ -157,7 +157,7 @@ def now_loc(update: Update, context: CallbackContext):
         for current_station in station_search['stopPoints']: stations[current_station['commonName']] = current_station['id']
         break
     if len(stations) == 0:
-        context.bot.send_message(chat_id=update.effective_chat.id, text="No stations nearby.", parse_mode=ParseMode.HTML, disable_web_page_preview=True, reply_markup=ReplyKeyboardRemove())
+        context.bot.send_message(chat_id=update.effective_chat.id, text="🗺 <b>Sorry!</b> I can't see any stations nearby...", parse_mode=ParseMode.HTML, disable_web_page_preview=True, reply_markup=ReplyKeyboardRemove())
         return ConversationHandler.END
     context.user_data['station_ids'] = stations
     station_names = list(stations.keys())[::-1]
@@ -170,22 +170,36 @@ def now_loc(update: Update, context: CallbackContext):
             buttons.append(this_row)
             this_row = []
     reply_markup = ReplyKeyboardMarkup(buttons, one_time_keyboard=True, resize_keyboard=True)
-    context.bot.send_message(chat_id=update.effective_chat.id, text="Pick a station, please!", parse_mode=ParseMode.HTML, disable_web_page_preview=True, reply_markup=reply_markup)
+    context.bot.send_message(chat_id=update.effective_chat.id, text="🚏 <b>Great!</b> Now, pick the station you're travelling from.", parse_mode=ParseMode.HTML, disable_web_page_preview=True, reply_markup=reply_markup)
     return STATION_SELECTED
 def now_results(update: Update, context: CallbackContext):
     if update.message.text not in context.user_data['station_ids'].keys():
-        context.bot.send_message(chat_id=update.effective_chat.id, text="I don't know that station.", parse_mode=ParseMode.HTML, disable_web_page_preview=True, reply_markup=ReplyKeyboardRemove())
+        context.bot.send_message(chat_id=update.effective_chat.id, text="😵‍💫 <b>I don't recognise that station!</b> Make sure you tap the button on your screen instead of typing the station name.", parse_mode=ParseMode.HTML, disable_web_page_preview=True, reply_markup=ReplyKeyboardRemove())
         return ConversationHandler.END
     context.user_data['chosen_station'] = update.message.text
-    print(context.user_data)
     arrivals = requests.get(f"https://api.tfl.gov.uk/StopPoint/{context.user_data['station_ids'][context.user_data['chosen_station']]}/Arrivals").json()
-    print(arrivals)
     if arrivals == []:
-        context.bot.send_message(chat_id=update.effective_chat.id, text="😴 <b>No arrivals coming up.</b> Is the station closed?", parse_mode=ParseMode.HTML, disable_web_page_preview=True, reply_markup=ReplyKeyboardRemove())
+        context.bot.send_message(chat_id=update.effective_chat.id, text="😴 <b>No arrivals coming up.</b> The station might be closed. (/status)", parse_mode=ParseMode.HTML, disable_web_page_preview=True, reply_markup=ReplyKeyboardRemove())
         return ConversationHandler.END
     else:
-        # TODO: Need to create the code for this section! It's 1:33am though, so all the Tube lines are shut :(
-        pass
+        message = f"🚝 <b>Next trains</b> at <b>{context.user_data['chosen_station']}</b>\n\n"
+        lines = {}
+        for arrival in arrivals:
+            lineName, destinationName, timeToStation, platformName = arrival['lineName'], arrival['destinationName'].replace(" Underground Station", "").replace(" DLR Station", " DLR"), arrival['timeToStation'], arrival['platformName']
+            if lineName not in lines.keys(): lines[lineName] = {destinationName: {'platform': platformName, 'times': [timeToStation]}}
+            else:
+                if destinationName not in lines[lineName]: lines[lineName][destinationName] = {'platform': platformName, 'times': [timeToStation]}
+                else: lines[lineName][destinationName]['times'].append(timeToStation)
+        
+        for line in lines.keys():
+            message += f"<b>{line}</b>\n"
+            for destination in lines[line].keys():
+                formatted_times = [("Due") if (x//60 == 0) else ((str(x//60) + " mins")) for x in sorted(lines[line][destination]['times'])]
+                formatted_times[0] = "<b>" + formatted_times[0] + "</b>"
+                if len(formatted_times) > 3: formatted_times = formatted_times[:3]
+                message += f"<b>{destination}</b> ({lines[line][destination]['platform']}): {', '.join(formatted_times)}\n"
+        context.bot.send_message(chat_id=update.effective_chat.id, text=message, parse_mode=ParseMode.HTML, disable_web_page_preview=True, reply_markup=ReplyKeyboardRemove())
+        return ConversationHandler.END
 def now_cancel(update: Update, context: CallbackContext):
     context.bot.send_message(chat_id=update.effective_chat.id, text="Cancelled.", parse_mode=ParseMode.HTML, disable_web_page_preview=True, reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
