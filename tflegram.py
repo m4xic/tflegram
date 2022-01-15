@@ -81,13 +81,13 @@ def service_status(update: Update, context: CallbackContext, requested_line=None
         message = "👋 Here's the current status across the network (via <a href=\"https://tfl.gov.uk/tube-dlr-overground/status\">tfl.gov.uk</a>)"
         message += f"\n💭 You can also ask me about a specific line, like <code>/status {random.choice(['dlr', 'wac', 'hammersmith', 'hac', 'jubilee', 'bakerloo', 'overground', 'tflrail'])}</code>"
         # For each status...
-        for status in statuses.keys():
+        for status in sorted(statuses.keys()):
             # If we have an emoji configured to be associated with the status, add it
             if status in sev_formats.keys(): message += f"\n\n<b>{sev_formats[status]} {status}</b>"
             # Otherwise, use the default emoji
             else: message += f"\n\n<b>{sev_formats['*']} {status}</b>"
             # Add each line that has the chosen severity status
-            message += '\n' + ', '.join(statuses[status])
+            message += '\n' + ', '.join(sorted(statuses[status]))
         # Send the message
         context.bot.send_message(chat_id=update.effective_chat.id, text=message, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
     else:
