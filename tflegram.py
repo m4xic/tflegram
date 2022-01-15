@@ -131,7 +131,7 @@ def strikes(update: Update, context: CallbackContext):
 
     num_on_strike = sum([len(lines_on_strike[x]) for x in lines_on_strike])
     if lines_on_strike == {}:
-        message = f"<b>✅ Good news!</b> I can't see any strikes affecting the network right now.\n\nYou cse /status to check for other incidents."
+        message = f"<b>✅ Good news!</b> I can't see any strikes affecting the network right now.\n\nYou can use /status to check for other incidents."
         context.bot.send_message(chat_id=update.effective_chat.id, text=message, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
     else:
         message = f"🪧 <b>Heads up!</b> {num_on_strike} line" + ("s" if num_on_strike != 1 else "") + " might be affected. Here's what you need to know."
@@ -141,6 +141,7 @@ def strikes(update: Update, context: CallbackContext):
         message += "\n\nMore info and alternative routes available on the <a href=\"https://tfl.gov.uk/tube-dlr-overground/status\">TfL website</a>."
         context.bot.send_message(chat_id=update.effective_chat.id, text=message, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
 dispatcher.add_handler(CommandHandler('strikes', strikes))
+dispatcher.add_handler(CommandHandler('strike', strikes))
 
 # Next departures
 # TODO: Write proper user messages for each stage
