@@ -44,6 +44,12 @@ Check the status of the whole network.
 <b>/status &lt;line&gt;</b>
 Check the status of a specific line.
 
+<b>/strikes</b>
+Check if any lines have ongoing strike action.
+
+<b>/now</b>
+Check the next departures at a station.
+
 ⚡️ Powered by <b><a href="https://tfl.gov.uk/info-for/open-data-users/">TfL Open Data</a></b>
 👨🏽‍🔧 Maintained by <b><a href="https://github.com/m4xic">@m4xic</a></b>
 🏙 Made with 🤍 (and 🐍) in London... obviously"""
