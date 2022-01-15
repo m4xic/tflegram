@@ -182,17 +182,22 @@ def now_results(update: Update, context: CallbackContext):
         context.bot.send_message(chat_id=update.effective_chat.id, text="😴 <b>No arrivals coming up.</b> The station might be closed. (/status)", parse_mode=ParseMode.HTML, disable_web_page_preview=True, reply_markup=ReplyKeyboardRemove())
         return ConversationHandler.END
     else:
-        message = f"🚝 <b>Next trains</b> at <b>{context.user_data['chosen_station']}</b>\n\n"
+        message = f"🚝 <b>Next trains</b> at <b>{context.user_data['chosen_station']}</b>\n"
         lines = {}
+        # TODO: Refactor this - change to group by Line -> Platform -> Destination -> [Times] (not Line -> Destination -> {Platform and Times})
         for arrival in arrivals:
-            lineName, destinationName, timeToStation, platformName = arrival['lineName'], arrival['destinationName'].replace(" Underground Station", "").replace(" DLR Station", " DLR"), arrival['timeToStation'], arrival['platformName']
+            if 'destinationName' not in arrival.keys():
+                lineName, destinationName, timeToStation, platformName = arrival['lineName'], arrival['towards'].replace("Check Front of Train", f"{arrival['platformName'].split(' ')[0]} ⚠️"), arrival['timeToStation'], arrival['platformName']
+            else:
+                lineName, destinationName, timeToStation, platformName = arrival['lineName'], arrival['destinationName'].replace(" Underground Station", "").replace(" DLR Station", " DLR").replace(" (H&C Line)", "").replace(" (Circle Line)", ""), arrival['timeToStation'], arrival['platformName']
+            
             if lineName not in lines.keys(): lines[lineName] = {destinationName: {'platform': platformName, 'times': [timeToStation]}}
             else:
                 if destinationName not in lines[lineName]: lines[lineName][destinationName] = {'platform': platformName, 'times': [timeToStation]}
                 else: lines[lineName][destinationName]['times'].append(timeToStation)
         
         for line in lines.keys():
-            message += f"<b>{line}</b>\n"
+            message += f"\n<b>{line}</b>\n"
             for destination in lines[line].keys():
                 formatted_times = [("Due") if (x//60 == 0) else ((str(x//60) + " mins")) for x in sorted(lines[line][destination]['times'])]
                 formatted_times[0] = "<b>" + formatted_times[0] + "</b>"
