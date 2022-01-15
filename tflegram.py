@@ -111,7 +111,7 @@ def service_status(update: Update, context: CallbackContext, requested_line=None
             # If there is a 'reason', there is a disruption so we should tell the user what's going on
             if 'reason' in api_status[0]['lineStatuses'][0].keys():
                 for disruption in api_status[0]['lineStatuses']:
-                    message += f"\n\n<pre>{disruption['reason']}</pre>"
+                    message += f"\n\n<pre>{disruption['reason'].rstrip()}</pre>"
                 # Append the TfL Status page only if a disruption has been identified
                 message += "\n\nMore info and alternative routes available on the <a href=\"https://tfl.gov.uk/tube-dlr-overground/status\">TfL website</a>."
             # Send the reply, disabling message previews to make the message cleaner
@@ -137,7 +137,7 @@ def strikes(update: Update, context: CallbackContext):
         message = f"🪧 <b>Heads up!</b> {num_on_strike} line" + ("s" if num_on_strike != 1 else "") + " might be affected. Here's what you need to know."
         for reason in lines_on_strike.keys():
             message += f"\n\n⚠️ <b>{', '.join(lines_on_strike[reason][:-1])} and {lines_on_strike[reason][-1]}</b>"
-            message += f"\n<pre>{reason}</pre>"
+            message += f"\n<pre>{reason.rstrip()}</pre>"
         message += "\n\nMore info and alternative routes available on the <a href=\"https://tfl.gov.uk/tube-dlr-overground/status\">TfL website</a>."
         context.bot.send_message(chat_id=update.effective_chat.id, text=message, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
 dispatcher.add_handler(CommandHandler('strikes', strikes))
