@@ -128,9 +128,7 @@ def strikes(update: Update, context: CallbackContext):
                 if status_message['reason'] in lines_on_strike.keys(): lines_on_strike[status_message['reason']].append(line['name'])
                 else: lines_on_strike[status_message['reason']] = [line['name']]
 
-    num_on_strike = 0
-    for strike_notice in lines_on_strike: num_on_strike += len(lines_on_strike[strike_notice])
-
+    num_on_strike = sum([len(lines_on_strike[x]) for x in lines_on_strike])
     if lines_on_strike == {}:
         message = f"<b>✅ Good news!</b> I can't see any strikes going on at the moment.\n\nYou cse /status to check for other incidents."
         context.bot.send_message(chat_id=update.effective_chat.id, text=message, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
